@@ -178,6 +178,14 @@ type productCatalog struct {
 	pb.UnimplementedProductCatalogServiceServer
 }
 
+
+
+
+
+
+
+
+
 func readProductFiles() ([]*pb.Product, error) {
 
 	// find all .json files in the products directory
