@@ -70,7 +70,7 @@ jobs:
         - name: Login to Docker
           uses: docker/login-action@v3
           with:
-            username: ${{ secrets.DOCKER_USERNAME }}
+            username: ${{ secrets.DOCKER_USERN }}
             password: ${{ secrets.DOCKER_TOKEN }}
 
         - name: Docker Push
@@ -79,7 +79,7 @@ jobs:
             context: src/product-catalog
             file: src/product-catalog/Dockerfile
             push: true
-            tags: ${{ secrets.DOCKER_USERNAME }}/product-catalog:${{github.run_id}}
+            tags: ${{ secrets.DOCKER_USERN }}/product-catalog:${{github.run_id}}
 
     
     updatek8s:
@@ -91,11 +91,11 @@ jobs:
         - name: checkout code
           uses: actions/checkout@v4
           with:
-            token: ${{ secrets.GITHUB_TOKEN }}
+            token: ${{ secrets.TOKEN }}
 
         - name: Update tag in kubernetes deployment manifest
           run: | 
-               sed -i "s|image: .*|image: ${{ secrets.DOCKER_USERNAME }}/product-catalog:${{github.run_id}}|" kubernetes/productcatalog/deploy.yaml
+               sed -i "s|image: .*|image: ${{ secrets.DOCKER_USERN }}/product-catalog:${{github.run_id}}|" kubernetes/productcatalog/deploy.yaml
         
         - name: Commit and push changes
           run: |
