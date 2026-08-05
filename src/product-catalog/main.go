@@ -19,6 +19,8 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -37,6 +39,7 @@ import (
 	pb "github.com/opentelemetry/opentelemetry-demo/src/product-catalog/genproto/oteldemo"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
@@ -175,14 +178,6 @@ type productCatalog struct {
 	pb.UnimplementedProductCatalogServiceServer
 }
 
-
-
-
-
-
-
-
-
 func readProductFiles() ([]*pb.Product, error) {
 
 	// find all .json files in the products directory
@@ -257,10 +252,10 @@ func (p *productCatalog) GetProduct(ctx context.Context, req *pb.GetProductReque
 
 	// GetProduct will fail on a specific product when feature flag is enabled
 	if p.checkProductFailure(ctx, req.Id) {
-		msg := "Error: Product Catalog Fail Feature Flag Enabled"
-        span.SetStatus(otelcodes.Error, msg)
-        span.AddEvent(msg)
-        return nil, status.Error(codes.Internal, msg)
+		msg := fmt.Sprintf("Error: Product Catalog Fail Feature Flag Enabled")
+		span.SetStatus(otelcodes.Error, msg)
+		span.AddEvent(msg)
+		return nil, status.Errorf(codes.Internal, msg)
 	}
 
 	var found *pb.Product
@@ -273,9 +268,9 @@ func (p *productCatalog) GetProduct(ctx context.Context, req *pb.GetProductReque
 
 	if found == nil {
 		msg := fmt.Sprintf("Product Not Found: %s", req.Id)
-        span.SetStatus(otelcodes.Error, msg)
-        span.AddEvent(msg)
-        return nil, status.Error(codes.NotFound, msg)
+		span.SetStatus(otelcodes.Error, msg)
+		span.AddEvent(msg)
+		return nil, status.Errorf(codes.NotFound, msg)
 	}
 
 	msg := fmt.Sprintf("Product Found - ID: %s, Name: %s", req.Id, found.Name)
@@ -307,7 +302,6 @@ func (p *productCatalog) checkProductFailure(ctx context.Context, id string) boo
 		return false
 	}
 
-
 	client := openfeature.NewClient("productCatalog")
 	failureEnabled, _ := client.BooleanValue(
 		ctx, "productCatalogFailure", false, openfeature.EvaluationContext{},
@@ -315,8 +309,12 @@ func (p *productCatalog) checkProductFailure(ctx context.Context, id string) boo
 	return failureEnabled
 }
 
-
-
+func createClient(ctx context.Context, svcAddr string) (*grpc.ClientConn, error) {
+	return grpc.DialContext(ctx, svcAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+	)
+}
 
 
 
